@@ -1,0 +1,43 @@
+version: "3.9"
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: resume
+      POSTGRES_PASSWORD: resume123
+      POSTGRES_DB: resumes
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  n8n:
+    image: n8nio/n8n
+    ports:
+      - "5678:5678"
+    env_file:
+      - .env
+    volumes:
+      - ./n8n:/home/node/.n8n
+    depends_on:
+      - postgres
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+
+volumes:
+  pg_data:
