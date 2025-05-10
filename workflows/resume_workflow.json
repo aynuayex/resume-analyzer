@@ -1,0 +1,93 @@
+{
+  "name": "Resume Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "resume",
+        "method": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "Webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const fs = require('fs');\nconst filePath = $json[\"file_path\"];\nconst filename = $json[\"filename\"];\nconst text = fs.readFileSync(filePath, \"utf-8\");\n\nreturn [{ json: { text, filename } }];"
+      },
+      "id": "Read File",
+      "name": "Read File",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"Extract full_name, email, phone, skills (comma separated), experience_years, last_job_title from the resume text. Respond in JSON format.\" },\n    { \"role\": \"user\", \"content\": \"{{$json[\\\"text\\\"]}}\" }\n  ]\n}"
+      },
+      "id": "OpenAI",
+      "name": "OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "OPENAI_API_KEY"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "resumes",
+        "columns": [
+          "filename",
+          "full_name",
+          "email",
+          "phone",
+          "skills",
+          "experience_years",
+          "last_job_title"
+        ],
+        "values": [
+          "{{$node[\"Read File\"].json[\"filename\"]}}",
+          "{{$json[\"choices\"][0][\"message\"][\"content\"]}}"
+        ]
+      },
+      "id": "Save to DB",
+      "name": "Save to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1000, 300],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDS"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Read File", "type": "main", "index": 0 }]]
+    },
+    "Read File": {
+      "main": [[{ "node": "OpenAI", "type": "main", "index": 0 }]]
+    },
+    "OpenAI": {
+      "main": [[{ "node": "Save to DB", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "tags": []
+}
